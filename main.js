@@ -95,7 +95,7 @@ function transWithAnchor( x, y, C, callback ){
 	C.translate( x*-1, y*-1 );
 }
 function drawBranch( n, x, y ){
-	var sz=800/(bcount/2), px, py, cx, cy, i, n;
+	var sz=800/(bcount/2)*0.9, px, py, cx, cy, i, n;
 	C.strokeStyle = "#000";
 	C.lineCap = "round";
 	for( i=0; i<n; i++ ){
@@ -120,18 +120,23 @@ function init(){
 	nums2 = getNums2();
 	bidx = 0;
 }
+function drawFloor(){
+	C.fillStyle = "#eee";
+}
 function drawBG(){
 	var grad = C.createRadialGradient( SZ/2, SZ/2, 1, 0, 0, SZ );
 	grad.addColorStop( 0, "#eee" );
 	grad.addColorStop( 1, "#ddd" );
 	C.fillStyle = grad;
 	C.fillRect( 0, 0, SZ, SZ );
+	C.globalCompositeOperation = "multiply";
+	C.fillRect( 0, SZ*0.8, SZ, SZ );
 }
 function handleKeyPress(){}
 function render(){
 	bcount = round( to1(nums[0])*8 ) + 3;
 	drawBG();
-	drawBranch( bcount, 400, 800 );
+	drawBranch( bcount, SZ/2, SZ*0.9 );
 }
 function main(){
 	init();
