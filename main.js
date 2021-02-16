@@ -1,4 +1,4 @@
-var doc=document,win=window,SZ,nums,nums2,temp,bidx;
+var doc=document,win=window,SZ,nums,nums2,temp,bidx,count;
 var abs=Math.abs,rnd=Math.random,round=Math.round,max=Math.max,min=Math.min;
 var ceil=Math.ceil,floor=Math.floor,sin=Math.sin,cos=Math.cos,PI=Math.PI;
 var CVS=doc.querySelector("#comp1"),CVS2=doc.querySelector("#comp2");
@@ -95,7 +95,7 @@ function transWithAnchor( x, y, C, callback ){
 	C.translate( x*-1, y*-1 );
 }
 function drawBranch( n, x, y ){
-	var sz=40*n, px, py, cx, cy, i, n;
+	var sz=800/(bcount/2), px, py, cx, cy, i, n;
 	C.strokeStyle = "#000";
 	C.lineCap = "round";
 	for( i=0; i<n; i++ ){
@@ -113,15 +113,25 @@ function drawBranch( n, x, y ){
 	}
 }
 function init(){
-	CVS.width = 800;
-	CVS.height = 800;
+	SZ = 800;
+	CVS.width = SZ;
+	CVS.height = SZ;
 	nums = getNums();
 	nums2 = getNums2();
 	bidx = 0;
 }
+function drawBG(){
+	var grad = C.createRadialGradient( SZ/2, SZ/2, 1, 0, 0, SZ );
+	grad.addColorStop( 0, "#eee" );
+	grad.addColorStop( 1, "#ddd" );
+	C.fillStyle = grad;
+	C.fillRect( 0, 0, SZ, SZ );
+}
 function handleKeyPress(){}
 function render(){
-	drawBranch( round(to1(nums[0])*8)+3, 400, 800 );
+	bcount = round( to1(nums[0])*8 ) + 3;
+	drawBG();
+	drawBranch( bcount, 400, 800 );
 }
 function main(){
 	init();
