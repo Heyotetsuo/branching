@@ -134,7 +134,7 @@ function drawBG(){
 }
 function handleKeyPress(){}
 function render(){
-	bcount = round( to1(nums[0])*8 ) + 3;
+	bcount = round( to1(nums[0])*6 ) + 6;
 	drawBG();
 	drawBranch( bcount, SZ/2, SZ*0.9 );
 }
