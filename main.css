@@ -1,0 +1,21 @@
+body {
+	margin: 0;
+	padding: 0;
+	background-color: #fff;
+}
+#shadow {
+	display: none;
+}
+#wrap {
+	font-size: 2em;
+	font-family: sans-serif, arial;
+	padding: 0;
+	display: block;
+	text-align: center;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	width: 100%;
+	height: 100%;
+}

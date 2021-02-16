@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Fear</title>
+	<link rel="stylesheet" href="main.css">
+	<!--<link rel="shortcut icon" href="favicon.ico">-->
+</head>
+<body onkeypress="handleKeyPress()">
+	<div id="shadow">
+		<canvas id="comp2"></canvas>
+	</div>
+	<div id="wrap">
+		<canvas id="comp1"></canvas>
+	</div>
+</body>
+<script>
+var floor=Math.floor, rnd=Math.random, i=0, c;
+var chars = [0,1,2,3,4,5,6,7,8,9,'a','b','c','d','e','f'];
+var tokenData = { "tokenId": "00000000" }
+// tokenData.hash = "0x0a13e2e3c3d6283d376e1a73053eb98704bb4fb2d7a42f8224d38bf88217e0da";
+function getHash(n){
+	var s="";
+	for( i=0; i<64; i++ ){
+		c = floor( rnd() * chars.length );
+		s += chars[c];
+	}
+	tokenData.hash = "0x" + s;
+}
+function isReady( xhr ){ return (xhr.readyState===4 && xhr.status===200) }
+function save(n){
+	var xhr = new XMLHttpRequest(), fd = new FormData();
+	xhr.onreadystatechange = function(){
+		if ( n>0 && isReady(xhr) ){
+			main();
+			save(--n);
+		}
+	}
+	fd.append( "data",CVS.toDataURL("image/png") );
+	fd.append( "name", tokenData.hash.substring(2) );
+	xhr.open( "POST", "save.php" );
+	xhr.send( fd );
+}
+if (!tokenData.hash) getHash( 64 );
+</script>
+<script src="main.js"></script>
+</html>
+
