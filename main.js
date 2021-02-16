@@ -1,4 +1,4 @@
-var doc=document,win=window,SZ,nums,temp;
+var doc=document,win=window,SZ,nums,nums2,temp,bidx;
 var abs=Math.abs,rnd=Math.random,round=Math.round,max=Math.max,min=Math.min;
 var ceil=Math.ceil,floor=Math.floor,sin=Math.sin,cos=Math.cos,PI=Math.PI;
 var CVS=doc.querySelector("#comp1"),CVS2=doc.querySelector("#comp2");
@@ -11,8 +11,8 @@ function clear( C ){ C.clearRect(0,0,SZ,SZ) }
 function getNums2(){
 	var hashSingles=[],seed,rvs,i=0;
 	seed = parseInt( tokenData.hash.slice(0,16), 16 );
-	for(i=0;i<64;i++) hashPairs.push(tokenData.hash.charAt(i));
-	rvs = hashPairs.map(n=>parseInt(n,16));
+	for(i=0;i<64;i++) hashSingles.push(tokenData.hash.charAt(i));
+	rvs = hashSingles.map(n=>parseInt(n,16));
 	return rvs;
 }
 function getNums(){
@@ -95,20 +95,20 @@ function transWithAnchor( x, y, C, callback ){
 	C.translate( x*-1, y*-1 );
 }
 function drawBranch( n, x, y ){
-	var px, py, cx, cy, i, n;
-	var sz = 100;
+	var sz=40*n, px, py, cx, cy, i, n;
 	C.strokeStyle = "#000";
 	C.lineCap = "round";
 	for( i=0; i<n; i++ ){
-		cx = px ? px + to1N(nums[n+i%32])*sz : x;
-		cy = py ? py + to1(nums[n+i*2%32])*sz*-1 : y;
+		bidx++;
+		cx = px ? px + to1N(nums[(i+bidx)%32])*sz : x;
+		cy = py ? py + to1(nums[(i*2+bidx)%32])*sz*-1 : y;
 		C.beginPath();
 		C.moveTo( px, py );
 		C.lineTo( px, py );
 		C.lineTo( cx, cy );
 		C.lineWidth = n-i;
 		C.stroke();
-		drawBranch( n-i-1, cx, cy );
+		drawBranch( n-i-1, cx, cy, nums[i] );
 		px = cx, py = cy;
 	}
 }
@@ -116,10 +116,12 @@ function init(){
 	CVS.width = 800;
 	CVS.height = 800;
 	nums = getNums();
+	nums2 = getNums2();
+	bidx = 0;
 }
 function handleKeyPress(){}
 function render(){
-	drawBranch( 10, 400, 600 );
+	drawBranch( round(to1(nums[0])*8)+3, 400, 800 );
 }
 function main(){
 	init();
