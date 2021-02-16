@@ -94,7 +94,8 @@ function transWithAnchor( x, y, C, callback ){
 	callback( [].slice.call(arguments,3) );
 	C.translate( x*-1, y*-1 );
 }
-function drawBranch( n, x, y ){
+function drawBranch( args ){
+	var n = args[0], x = args[1], y = args[2];
 	var sz=800/(bcount/2)*0.9, px, py, cx, cy, i, n;
 	C.strokeStyle = "#000";
 	C.lineCap = "round";
@@ -108,7 +109,7 @@ function drawBranch( n, x, y ){
 		C.lineTo( cx, cy );
 		C.lineWidth = n-i;
 		C.stroke();
-		drawBranch( n-i-1, cx, cy, nums[i] );
+		drawBranch( [n-i-1, cx, cy, nums[i]] );
 		px = cx, py = cy;
 	}
 }
@@ -123,6 +124,11 @@ function init(){
 function drawFloor(){
 	C.fillStyle = "#eee";
 }
+function invert(){
+	C.globalCompositeOperation = "difference";
+	C.fillStyle = "#fff";
+	C.fillRect( 0, 0, SZ, SZ );
+}
 function drawBG(){
 	var grad = C.createRadialGradient( SZ/2, SZ/2, 1, 0, 0, SZ );
 	grad.addColorStop( 0, "#eee" );
@@ -135,8 +141,9 @@ function drawBG(){
 function handleKeyPress(){}
 function render(){
 	bcount = round( to1(nums[0])*6 ) + 6;
-	drawBG();
-	drawBranch( bcount, SZ/2, SZ*0.9 );
+	canvasAction( drawBG );
+	canvasAction( drawBranch, bcount, SZ/2, SZ*0.9 );
+	if ( nums[9] > 128 ) canvasAction( invert );
 }
 function main(){
 	init();
