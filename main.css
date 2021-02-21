@@ -1,7 +1,7 @@
 body {
 	margin: 0;
 	padding: 0;
-	background-color: #fff;
+	background-color: #000;
 }
 #shadow {
 	display: none;
@@ -18,4 +18,7 @@ body {
 	right: 0;
 	width: 100%;
 	height: 100%;
+}
+#comp1{
+	border: 1px black solid;
 }
