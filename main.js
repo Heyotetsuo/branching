@@ -1,14 +1,30 @@
 // abbreviations
-var abs=Math.abs,rnd=Math.random,round=Math.round,max=Math.max,min=Math.min,sqrt=Math.sqrt,ceil=Math.ceil,floor=Math.floor,sin=Math.sin,cos=Math.cos,tan=Math.tan,PI=Math.PI;
+var m=Math;d=document;w=window;
+var abs=m.abs,rnd=m.random,round=m.round,max=m.max,min=m.min,sqrt=m.sqrt,ceil=m.ceil,floor=m.floor,sin=m.sin,cos=m.cos,tan=m.tan,PI=m.PI;
 
 // globals
-var doc=document,win=window,SZ,nums,nums2,temp,bidx,count;
-var obj,uniLoc,mat,projMat,finMat;
-var CVS=doc.querySelector("#comp1"),CVS2=doc.querySelector("#comp2"),C,C2,AB,SD;
+var SZ,nums,nums2,temp,bidx,count, obj,uniLoc,mat,projMat,finMat,T;
+var CVS=d.querySelector("#comp1"),CVS2=d.querySelector("#comp2"),C,C2,AB,SD;
 function normInt(s){ return parseInt(s,32)-SZ }
 function d2r(n){ return n*PI/180 }
 function to1(n){ return n/255 };
 function to1N(n){ return n/128-1 };
+function randint(){
+	seed ^= seed << 13;
+	seed ^= seed >> 17;
+	seed ^= seed << 5;
+	return seed;
+}
+function randuint(){
+	return abs(randint());
+}
+function urand(){
+	var seed = randint();
+	return ( (seed<0?~seed+1:seed)%1024) / 1024;
+}
+function rand(){
+	return urand()*2-1;
+}
 function getNums(){
 	var hashPairs=[],seed,rvs,i=0,j=0;
 	var hash = tokenData.hash.slice(2);
@@ -112,11 +128,9 @@ function scale(out,mat,n){
 	for(i=0;i<mat.length;i++){ out[i] = mat[i]*n }
 	return out
 }
-function buildTree( x, y, n ){
-}
 function getColors(mat){
 	var a=[],i;
-	for (i=0;i<mat.length/3;i++){ arrConcat(a, [rnd(),rnd(),rnd()]) }
+	for (i=0;i<mat.length/3;i++){ a = a.concat([rnd(),rnd(),rnd()]) }
 	return a;
 }
 function multiplyMat(a, b){
@@ -152,12 +166,6 @@ function multiplyMat(a, b){
 	out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
 	return out;
 }
-function arrConcat(a,b){
-	for (var i=0; i<b.length; i++){
-		a.push(b[i]);
-	}
-	return a;
-}
 function arrDiff(a,b){ return [a[0]-b[0],a[1]-b[1],a[2]-c[2]] }
 function crossMult(a,b){
 	return [
@@ -176,7 +184,7 @@ function getNorm( verts ){
 function getNorms( verts ){
 	var a=[], i;
 	for(i=0;i<verts.length;i+=6){
-		a = arrConcat( a, getNorm(verts.slice(i,9)) );
+		a = a.concat( getNorm(verts.slice(i,9)) );
 	}
 	return a;
 }
@@ -188,19 +196,48 @@ function getFaces( mat ){
 	}
 	return a;
 }
-function drawBranch( p1, p2, s1, s2, n ){
-	v=[],f=[],i,j;
+function getRndP(p,m){
+	return [p[0]+rand()*m,p[1]+rand()*m,p[2]+rand()*m ];
+}
+function buildSkeleton(p,n,a){
+	if (typeof a === "undefined"){
+		a = (p).concat(getRndP(p,urand()/2) );
+	}
+	for(var i=0;i<n;i++){
+		a = a.concat( getRndP(p,urand()/2) );
+	}
+	return a;
+}
+function buildTree( p, n ){
+	var skel = buildSkeleton(p,n);
+	var obj = {verts:[],faces:[],norms:[]};
+	var rad = 1, i;
+	for( i=0; i<=n; i++ ){
+		obj.verts = obj.verts.concat([
+			skel[i] + sin(i/n*PI*2)*rad,
+			skel[i+1] + cos(i/n*PI*2)*rad,
+			skel[i+2]
+		]);
+		obj.verts = obj.verts.concat([
+			skel[i+3] + sin(i/n*PI*2)*rad,
+			skel[i+4] + cos(i/n*PI*2)*rad,
+			skel[i+5]
+		]);
+	}
+	obj.faces = getFaces( obj.verts );
+	obj.norms = getNorms( obj.verts );
+	return obj;
 }
 function buildObj(){
 	var obj={verts:[],faces:[],norms:[]}, i, j;
 	var a=[0,0,-1], b=[0,0,1], rad=rnd()*0.5+0.25, n=round(rnd()*8)+4;
 	for(j=0;j<=n;j++){
-		arrConcat( obj.verts, [
+		obj.verts = obj.verts.concat([
 			a[0] + sin(j/n*PI*2)*rad,
 			a[1] + cos(j/n*PI*2)*rad,
 			a[2]
 		]);
-		arrConcat( obj.verts, [
+		obj.verts = obj.verts.concat([
 			b[0] + sin(j/n*PI*2)*rad,
 			b[1] + cos(j/n*PI*2)*rad,
 			b[2]
@@ -226,7 +263,7 @@ function parseObj(obj){
 	for(i=0;i<f.length;i++){ // triangulate verts
 		for(j=0;j<f[i].length;j++){
 			idx = f[i][j]-1;
-			arrConcat( vmat, v.slice(idx*3, idx*3+3) );
+			vmat = vmat.concat( v.slice(idx*3, idx*3+3) );
 		}
 	}
 	return {verts:vmat,faces:a,norms:n}
@@ -235,7 +272,7 @@ function render(){
 	var vBuff,cBuff,vShdr,fShdr,prog,pLoc,cLoc,x,y;
 	bcount = round( to1(nums[0])*6 ) + 6;
 	
-	obj = buildObj();
+	obj = buildTree( [0,0.8,0], randuint()%100+1 );
 	obj = parseObj( obj );
 	obj.clr = getColors( obj.verts );
 
@@ -307,6 +344,7 @@ function render(){
 }
 function init(){
 	SZ = 800;
+	seed = parseInt( tokenData.hash.slice(2,16), 16);
 	CVS.width = SZ, CVS.height = SZ;
 	CVS2.width = SZ, CVS2.height = SZ;
 	C=CVS.getContext("webgl"),C2=CVS2.getContext("2d");
