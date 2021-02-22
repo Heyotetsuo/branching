@@ -196,58 +196,51 @@ function getFaces( mat ){
 	}
 	return a;
 }
-function getRndP(p,m){
-	return [p[0]+rand()*m,p[1]+rand()*m,p[2]+rand()*m ];
+function getRndP( p, m ){
+	return [ p[0]+rand()*m, p[1]+rand()*m,p[2]+rand()*m ];
 }
-function buildSkeleton(p,n,a){
+function getMainCoord( a ){
+	var c=0, max=0, v, i;
+	for(i=0;i<a.length;i++){
+		v = abs(a[i]);
+		if ( a[i] > max ) max=v, c=i;
+	}
+	return c;
+}
+function buildSkeleton( p, n, a ){
 	if (typeof a === "undefined"){
-		a = (p).concat(getRndP(p,urand()/2) );
+		a = (p).concat( getRndP(p, rand()*3) );
 	}
 	for(var i=0;i<n;i++){
-		a = a.concat( getRndP(p,urand()/2) );
+		a = a.concat( getRndP(p, rand()*3) );
 	}
 	return a;
 }
 function buildTree( p, n ){
 	var skel = buildSkeleton(p,n);
 	var obj = {verts:[],faces:[],norms:[]};
-	var rad = 1, i;
-	for( i=0; i<=n; i++ ){
-		obj.verts = obj.verts.concat([
-			skel[i] + sin(i/n*PI*2)*rad,
-			skel[i+1] + cos(i/n*PI*2)*rad,
-			skel[i+2]
-		]);
-		obj.verts = obj.verts.concat([
-			skel[i+3] + sin(i/n*PI*2)*rad,
-			skel[i+4] + cos(i/n*PI*2)*rad,
-			skel[i+5]
-		]);
+	var rad = 0.1, i, j, npts = 8, a, b;
+	for( i=0; i<n-1; i++ ){
+		a = skel.slice( i*3, i*3+3 );
+		b = skel.slice( (i+1)*3, (i+1)*3+3 );
+		for( j=0; j<=npts; j++ ){
+			obj.verts = obj.verts.concat([
+				a[0] + sin(j/npts*PI*2)*rad,
+				a[1] + cos(j/npts*PI*2)*rad,
+				a[2]
+			]);
+			obj.verts = obj.verts.concat([
+				b[0] + sin(j/npts*PI*2)*rad,
+				b[1] + cos(j/npts*PI*2)*rad,
+				b[2]
+			]);
+		}
 	}
 	obj.faces = getFaces( obj.verts );
 	obj.norms = getNorms( obj.verts );
 	return obj;
 }
-function buildObj(){
-	var obj={verts:[],faces:[],norms:[]}, i, j;
-	var a=[0,0,-1], b=[0,0,1], rad=rnd()*0.5+0.25, n=round(rnd()*8)+4;
-	for(j=0;j<=n;j++){
-		obj.verts = obj.verts.concat([
-			a[0] + sin(j/n*PI*2)*rad,
-			a[1] + cos(j/n*PI*2)*rad,
-			a[2]
-		]);
-		obj.verts = obj.verts.concat([
-			b[0] + sin(j/n*PI*2)*rad,
-			b[1] + cos(j/n*PI*2)*rad,
-			b[2]
-		]);
-	}
-	obj.faces = getFaces( obj.verts );
-	obj.norms = getNorms( obj.verts );
-	return obj;
-}
-function parseObj(obj){
+function parseObj( obj ){
 	var vmat=[],nmat=[],a=[],v=obj.verts,f=obj.faces,n=obj.norms,i,j,idx;
 	for(i=0;i<f.length;i++){ // triangulate faces
 		if ( f[i].length > 4 ) throw( "Ngons not allowed" );
@@ -272,7 +265,7 @@ function render(){
 	var vBuff,cBuff,vShdr,fShdr,prog,pLoc,cLoc,x,y;
 	bcount = round( to1(nums[0])*6 ) + 6;
 	
-	obj = buildTree( [0,0.8,0], randuint()%100+1 );
+	obj = buildTree( [0,0,0], randuint()%100+1 );
 	obj = parseObj( obj );
 	obj.clr = getColors( obj.verts );
 
@@ -344,7 +337,7 @@ function render(){
 }
 function init(){
 	SZ = 800;
-	seed = parseInt( tokenData.hash.slice(2,16), 16);
+	seed = parseInt( "0x" + tokenData.hash.slice(2,16) );
 	CVS.width = SZ, CVS.height = SZ;
 	CVS2.width = SZ, CVS2.height = SZ;
 	C=CVS.getContext("webgl"),C2=CVS2.getContext("2d");
