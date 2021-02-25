@@ -1,9 +1,9 @@
 // abbreviations
 var m=Math;d=document;w=window;
-var abs=m.abs,rnd=m.random,round=m.round,max=m.max,min=m.min,sqrt=m.sqrt,ceil=m.ceil,floor=m.floor,sin=m.sin,cos=m.cos,tan=m.tan,PI=m.PI;
+var abs=m.abs,rnd=m.random,round=m.round,max=m.max,min=m.min,sqrt=m.sqrt,ceil=m.ceil,floor=m.floor,sin=m.sin,cos=m.cos,tan=m.tan,pow=m.pow,PI=m.PI;
 
 // globals
-var SZ,nums,nums2,temp,bidx,count, obj,uniLoc,mat,projMat,finMat,T;
+var SZ,nums,nums2,temp,bidx,count, obj,objs,uniLoc,mat,projMat,finMat,T;
 var CVS=d.querySelector("#comp1"),CVS2=d.querySelector("#comp2"),C,C2,AB,SD;
 function normInt(s){ return parseInt(s,32)-SZ }
 function d2r(n){ return n*PI/180 }
@@ -196,8 +196,45 @@ function getFaces( mat ){
 	}
 	return a;
 }
-function getRndP( p, m ){
-	return [ p[0]+rand()*m, p[1]+rand()*m,p[2]+rand()*m ];
+function avgArrays(a,b){
+	return [
+		(a[0]-b[0])/2,
+		(a[1]-b[1])/2,
+		(a[2]-b[2])/2
+	];
+}
+function getRegP(a,b,tot,n){
+	return [
+		((a[0]+b[0])/tot)*n,
+		((a[1]+b[1])/tot)*n,
+		((a[2]+b[2])/tot)*n
+	];
+}
+function getRndP(p,m){
+	var x = rand()*m;
+	var y = rand()*m;
+	var z = rand()*m;
+	return [x,y,z];
+}
+function getBranch( a, b, n ){
+	// initialize emptry array ARR, set STEP to be (A-B)/N.
+	var arr=[], c=a, i;
+	arr = arr.concat( c );
+
+	// do for N segments.
+	for(i=0;i<n;i++){
+		// pick a random point C
+		c = getRndP( c, rand() );
+
+		// set C[x,y,z] each to be averaged against B.
+		c = avgArrays( c, getRegP(a,b,n,i+1) );
+
+		// append C to ARR (flatly, using concat)
+		arr = arr.concat( c );
+	}
+
+	// return flat array [A, C, B]
+	return arr;
 }
 function getMainCoord( a ){
 	var c=0, max=0, v, i;
@@ -208,37 +245,67 @@ function getMainCoord( a ){
 	return c;
 }
 function buildSkeleton( p, n, a ){
+	var skel = [], thisP, i;
 	if (typeof a === "undefined"){
-		a = (p).concat( getRndP(p, rand()*3) );
+		a = getBranch( p, getRndP(p,10), 10 );
 	}
-	for(var i=0;i<n;i++){
-		a = a.concat( getRndP(p, rand()*3) );
+	skel = a.slice(0,3);
+	for(i=3;i<n;i+=3){
+		skel = skel.concat( a[i] );
+		thisP = a.slice(i,i+3);
+		a = a.concat(
+			getBranch(
+				thisP, getRndP(thisP,10), 10
+			)
+		);
 	}
 	return a;
 }
-function buildTree( p, n ){
-	var skel = buildSkeleton(p,n);
+function normalize( a ){
+	var out = (a);
+	var x=a[0], y=a[1], z=a[2];
+	var len = x*x + y*y + z*z;
+	if (len > 0) len = 1 / Math.sqrt(len);
+	out[0] = a[0]*len;
+	out[1] = a[1]*len;
+	out[2] = a[2]*len;
+	return out;
+}
+function lathe( skel ){
 	var obj = {verts:[],faces:[],norms:[]};
-	var rad = 0.1, i, j, npts = 8, a, b;
+	var rad = 0.05, i, j, npts = 8, a, b, c, inc, mult;
+	var n = skel.length/3;
 	for( i=0; i<n-1; i++ ){
 		a = skel.slice( i*3, i*3+3 );
 		b = skel.slice( (i+1)*3, (i+1)*3+3 );
 		for( j=0; j<=npts; j++ ){
+			inc = j/npts*PI*2;
+			mult = rad - (i/n) * rad;
 			obj.verts = obj.verts.concat([
-				a[0] + sin(j/npts*PI*2)*rad,
-				a[1] + cos(j/npts*PI*2)*rad,
-				a[2]
+				a[0]+sin(inc)*mult,
+				a[1]+cos(inc)*mult,
+				a[2]+cos(inc)*mult
 			]);
 			obj.verts = obj.verts.concat([
-				b[0] + sin(j/npts*PI*2)*rad,
-				b[1] + cos(j/npts*PI*2)*rad,
-				b[2]
+				b[0]+sin(inc)*mult,
+				b[1]+cos(inc)*mult,
+				b[2]+cos(inc)*mult
 			]);
 		}
 	}
 	obj.faces = getFaces( obj.verts );
 	obj.norms = getNorms( obj.verts );
 	return obj;
+}
+function buildTree( p, n ){
+	var branches=[], branch, thisP=p, lastP=p, i;
+	for(i=0;i<n;i++){
+		thisP = getRndP( p, 10 );
+		branch = getBranch(lastP,thisP,10);
+		branches.push( lathe(branch) );
+		lastP = thisP;
+	}
+	return branches;
 }
 function parseObj( obj ){
 	var vmat=[],nmat=[],a=[],v=obj.verts,f=obj.faces,n=obj.norms,i,j,idx;
@@ -265,8 +332,8 @@ function render(){
 	var vBuff,cBuff,vShdr,fShdr,prog,pLoc,cLoc,x,y;
 	bcount = round( to1(nums[0])*6 ) + 6;
 	
-	obj = buildTree( [0,0,0], randuint()%100+1 );
-	obj = parseObj( obj );
+	objs = buildTree( [0,0,0], randuint()%10+3 );
+	obj = parseObj( objs[0] );
 	obj.clr = getColors( obj.verts );
 
 	vBuff = C.createBuffer();
@@ -326,7 +393,7 @@ function render(){
 
 	mat = scale( mat, 0.1 );
 	mat = translate( mat, [0,0,-2] );
-	rotate(45,0);
+	rotate(0,0);
 	C.uniformMatrix4fv( uniLoc.matrix, false, finMat );
 	C.drawArrays(C.TRIANGLES,0,obj.verts.length/3);
 
