@@ -199,17 +199,16 @@ function getFaces( mat ){
 }
 function avgArrays(a,b){
 	return [
-		(a[0]-b[0])/2,
-		(a[1]-b[1])/2,
-		(a[2]-b[2])/2
+		(a[0]+b[0])/2,
+		(a[1]+b[1])/2,
+		(a[2]+b[2])/2
 	];
 }
 function getRegP(a,b,tot,n){
-	return [
-		((a[0]+b[0])/tot)*n,
-		((a[1]+b[1])/tot)*n,
-		((a[2]+b[2])/tot)*n
-	];
+	var x = (b[0]-a[0])/tot;
+	var y = (b[1]-a[1])/tot;
+	var z = (b[2]-a[2])/tot;
+	return [ a[0]+x*n, a[1]+y*n, a[2]+z*n ];
 }
 function getRndP(p,m){
 	var x = rand()*m;
@@ -219,16 +218,19 @@ function getRndP(p,m){
 }
 function getBranch( a, b, n ){
 	// initialize emptry array ARR, set STEP to be (A-B)/N.
-	var arr=[], c=a, i;
+	var arr=[], c=a, d=a, i;
 	arr = arr.concat( c );
 
 	// do for N segments.
-	for(i=0;i<n;i++){
+	for(i=1;i<n;i++){
+		d = getRegP(a,b,n,i+1);
+		d[1] += i;
+
 		// pick a random point C
-		c = getRndP( c, rand() );
+		c = getRndP( d, 1 );
 
 		// set C[x,y,z] each to be averaged against B.
-		c = avgArrays( c, getRegP(a,b,n,i+1) );
+		c = avgArrays( c, d );
 
 		// append C to ARR (flatly, using concat)
 		arr = arr.concat( c );
@@ -237,42 +239,45 @@ function getBranch( a, b, n ){
 	// return flat array [A, C, B]
 	return arr;
 }
-function buildTree( p, n ){
-	var a=p,b=p,i;
-	var b = getRndP( b, 10 );
-	var branch = getBranch( a, b, 10 );
+function buildTree( a, b, n ){
+	var i,j;
+	var branch = getBranch( a, b, n );
 	var root = branch;
-	var len = branch.length/3;
-	var branches = [ lathe(branch) ];
-	for(i=0;i<len;i++){
+	var len = branch.length/3, len2;
+	var branches = [ branch ];
+
+	// build main branches
+	for(i=1;i<len;i++){
 		a = root.slice(i*3,i*3+3);
-		b = getRndP( b, 10 );
-		branch = getBranch( a, b, 10 );
-		branches.push( lathe(branch) );
+		b = getRndP( b, 3 );
+		branch = getBranch( a, b, n/2 );
+		branches.push( branch );
+	}
+
+	// build secondary branches
+	len = branches.length;
+	for(i=1;i<len;i++){
+		branch = branches[i];
+		len2 = branches[i].length/3;
+		for(j=1;j<len2;j++){
+			a = branch.slice(j*3,j*3+3);
+			b = getRndP(a,1);
+			branch = getBranch(a,b,n/10);
+			branches.push( branch );
+		}
+	}
+	
+	// lathe the branches
+	branches[0] = lathe(branches[0],0.1);
+	for(i=1;i<branches.length;i++){
+		branches[i] = lathe(branches[i],0.05);
 	}
 	return branches;
 }
-function buildSkeleton( p, n, a ){
-	var skel = [], thisP, i;
-	if (typeof a === "undefined"){
-		a = getBranch( p, getRndP(p,10), 10 );
-	}
-	skel = a.slice(0,3);
-	for(i=3;i<n;i+=3){
-		skel = skel.concat( a[i] );
-		thisP = a.slice(i,i+3);
-		a = a.concat(
-			getBranch(
-				thisP, getRndP(thisP,10), 10
-			)
-		);
-	}
-	return a;
-}
-function lathe( skel ){
+function lathe( skel, rad ){
 	console.log( "lathing..." );
 	var obj = {verts:[],faces:[],norms:[]};
-	var rad = 0.05, i, j, npts = 8, a, b, c, inc, mult;
+	var npts=4, inc, mult, a,b,c, i,j;
 	var n = skel.length/3;
 	for( i=0; i<n-1; i++ ){
 		a = skel.slice( i*3, i*3+3 );
@@ -320,7 +325,7 @@ function parseObj( obj ){
 function render(){
 	var vShdr,fShdr,prog,pLoc,cLoc,x,y,o,i;
 	
-	objs = buildTree( [0,0,0], randuint()%10+3 );
+	objs = buildTree( [0,-1,0], [0,1,0], randuint()%10+3 );
 	for(i=0;i<objs.length;i++){
 		objs[i] = parseObj( objs[i] );
 		objs[i].clr = getColors( objs[i].verts );
@@ -401,7 +406,6 @@ function renderTree(objs){
 		C.bindBuffer(AB, cBuff);
 		C.bufferData(AB, new Float32Array(o.clr), SD);
 		C.drawArrays(C.TRIANGLES,0,o.verts.length/3);
-		debugger;
 	}
 }
 function init(){
