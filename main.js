@@ -237,13 +237,20 @@ function getBranch( a, b, n ){
 	// return flat array [A, C, B]
 	return arr;
 }
-function getMainCoord( a ){
-	var c=0, max=0, v, i;
-	for(i=0;i<a.length;i++){
-		v = abs(a[i]);
-		if ( a[i] > max ) max=v, c=i;
+function buildTree( p, n ){
+	var a=p,b=p,i;
+	var b = getRndP( b, 10 );
+	var branch = getBranch( a, b, 10 );
+	var root = branch;
+	var len = branch.length/3;
+	var branches = [ lathe(branch) ];
+	for(i=0;i<len;i++){
+		a = root.slice(i*3,i*3+3);
+		b = getRndP( b, 10 );
+		branch = getBranch( a, b, 10 );
+		branches.push( lathe(branch) );
 	}
-	return c;
+	return branches;
 }
 function buildSkeleton( p, n, a ){
 	var skel = [], thisP, i;
@@ -262,17 +269,8 @@ function buildSkeleton( p, n, a ){
 	}
 	return a;
 }
-function normalize( a ){
-	var out = (a);
-	var x=a[0], y=a[1], z=a[2];
-	var len = x*x + y*y + z*z;
-	if (len > 0) len = 1 / Math.sqrt(len);
-	out[0] = a[0]*len;
-	out[1] = a[1]*len;
-	out[2] = a[2]*len;
-	return out;
-}
 function lathe( skel ){
+	console.log( "lathing..." );
 	var obj = {verts:[],faces:[],norms:[]};
 	var rad = 0.05, i, j, npts = 8, a, b, c, inc, mult;
 	var n = skel.length/3;
@@ -297,16 +295,6 @@ function lathe( skel ){
 	obj.faces = getFaces( obj.verts );
 	obj.norms = getNorms( obj.verts );
 	return obj;
-}
-function buildTree( p, n ){
-	var branches=[], branch, thisP=p, lastP=p, i;
-	for(i=0;i<n;i++){
-		thisP = getRndP( p, 10 );
-		branch = getBranch(lastP,thisP,10);
-		branches.push( lathe(branch) );
-		lastP = thisP;
-	}
-	return branches;
 }
 function parseObj( obj ){
 	var vmat=[],nmat=[],a=[],v=obj.verts,f=obj.faces,n=obj.norms,i,j,idx;
@@ -413,6 +401,7 @@ function renderTree(objs){
 		C.bindBuffer(AB, cBuff);
 		C.bufferData(AB, new Float32Array(o.clr), SD);
 		C.drawArrays(C.TRIANGLES,0,o.verts.length/3);
+		debugger;
 	}
 }
 function init(){
