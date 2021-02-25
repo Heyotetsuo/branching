@@ -4,6 +4,7 @@ var abs=m.abs,rnd=m.random,round=m.round,max=m.max,min=m.min,sqrt=m.sqrt,ceil=m.
 
 // globals
 var SZ,nums,nums2,temp,bidx,count, obj,objs,uniLoc,mat,projMat,finMat,T;
+var vbuff,cbuff;
 var CVS=d.querySelector("#comp1"),CVS2=d.querySelector("#comp2"),C,C2,AB,SD;
 function normInt(s){ return parseInt(s,32)-SZ }
 function d2r(n){ return n*PI/180 }
@@ -97,7 +98,7 @@ function rotate(x,y){
 	rotateX( mat, y );
 	finMat = multiplyMat( projMat, mat );
 	C.uniformMatrix4fv( uniLoc.matrix, false, finMat );
-	C.drawArrays(C.TRIANGLES,0,obj.verts.length/3);
+	renderTree( objs );
 }
 function translate(a, v) {
 	var out=a;
@@ -329,19 +330,14 @@ function parseObj( obj ){
 	return {verts:vmat,faces:a,norms:n}
 }
 function render(){
-	var vBuff,cBuff,vShdr,fShdr,prog,pLoc,cLoc,x,y;
-	bcount = round( to1(nums[0])*6 ) + 6;
+	var vShdr,fShdr,prog,pLoc,cLoc,x,y,o,i;
 	
 	objs = buildTree( [0,0,0], randuint()%10+3 );
-	obj = parseObj( objs[0] );
-	obj.clr = getColors( obj.verts );
-
-	vBuff = C.createBuffer();
-	C.bindBuffer(AB, vBuff);
-	C.bufferData(AB, new Float32Array(obj.verts), SD);
-	cBuff = C.createBuffer();
-	C.bindBuffer(AB, cBuff);
-	C.bufferData(AB, new Float32Array(obj.clr), SD);
+	for(i=0;i<objs.length;i++){
+		objs[i] = parseObj( objs[i] );
+		objs[i].clr = getColors( objs[i].verts );
+	}
+	obj = objs[0];
 
 	vShdr = C.createShader(C.VERTEX_SHADER);
 	C.shaderSource(vShdr, `
@@ -364,21 +360,26 @@ function render(){
 		}
 	`);
 
-	C.compileShader(vShdr);
-	C.compileShader(fShdr);
+	vBuff = C.createBuffer(), cBuff = C.createBuffer();
+	C.bindBuffer(AB, vBuff);
+	C.bufferData(AB, new Float32Array(obj.verts), SD);
+	C.bindBuffer(AB, cBuff);
+	C.bufferData(AB, new Float32Array(obj.clr), SD);
 
 	prog = C.createProgram();
+	C.compileShader(vShdr);
+	C.compileShader(fShdr);
 	C.attachShader(prog, vShdr);
 	C.attachShader(prog, fShdr);
 	C.linkProgram(prog);
 	
 	pLoc = C.getAttribLocation(prog,`position`);
+	cLoc = C.getAttribLocation(prog,`color`);
 	C.enableVertexAttribArray(pLoc);
+	C.enableVertexAttribArray(cLoc);
+
 	C.bindBuffer(AB, vBuff);
 	C.vertexAttribPointer(pLoc,3,C.FLOAT,false,0,0);
-
-	cLoc = C.getAttribLocation(prog,`color`);
-	C.enableVertexAttribArray(cLoc);
 	C.bindBuffer(AB, cBuff);
 	C.vertexAttribPointer(cLoc,3,C.FLOAT,false,0,0);
 
@@ -387,20 +388,32 @@ function render(){
 
 	uniLoc = { matrix: C.getUniformLocation(prog,`matrix`) }
 	mat = mat4Create(), projMat = mat4Create(), finMat = mat4Create();
-
 	projMat = projPersp( 75*PI/180, 1, 1e-4, 1e4 );
 	finMat = multiplyMat( projMat, mat );
-
 	mat = scale( mat, 0.1 );
 	mat = translate( mat, [0,0,-2] );
 	rotate(0,0);
+
 	C.uniformMatrix4fv( uniLoc.matrix, false, finMat );
 	C.drawArrays(C.TRIANGLES,0,obj.verts.length/3);
+
+	renderTree( objs );
 
 	CVS.addEventListener( "mousedown", doMouseDown );
 	CVS.addEventListener( "mouseup", function(){
 		CVS.removeEventListener( "mousemove", doMouseMove );
 	});
+}
+function renderTree(objs){
+	var o,i;
+	for(i=0;i<objs.length;i++){
+		o = objs[i];
+		C.bindBuffer(AB, vBuff);
+		C.bufferData(AB, new Float32Array(o.verts), SD);
+		C.bindBuffer(AB, cBuff);
+		C.bufferData(AB, new Float32Array(o.clr), SD);
+		C.drawArrays(C.TRIANGLES,0,o.verts.length/3);
+	}
 }
 function init(){
 	SZ = 800;
