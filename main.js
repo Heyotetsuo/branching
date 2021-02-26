@@ -403,7 +403,10 @@ function render(){
 	});
 }
 function comp(){
-	C.fillStyle = "#eee";
+	var grad = C.createRadialGradient( SZ/2, SZ/2, SZ/2, SZ/2, SZ/2, 0 );
+	grad.addColorStop(0,"#ccc");
+	grad.addColorStop(1,"#eee");
+	C.fillStyle = grad;
 	C.fillRect(0,0,SZ,SZ);
 	C.drawImage( CVS2, 0, 0 );
 }
