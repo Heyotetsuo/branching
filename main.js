@@ -218,19 +218,21 @@ function getRndP(p,m){
 }
 function getBranch( a, b, n ){
 	// initialize emptry array ARR, set STEP to be (A-B)/N.
-	var arr=[], c=a, d=a, i;
+	var arr=[], c=a, d=a, i,j;
 	arr = arr.concat( c );
 
 	// do for N segments.
 	for(i=1;i<n;i++){
 		d = getRegP(a,b,n,i+1);
-		d[1] += i;
+		d[1] += i/PI;
 
 		// pick a random point C
 		c = getRndP( d, 1 );
 
 		// set C[x,y,z] each to be averaged against B.
-		c = avgArrays( c, d );
+		for(j=0;j<3;j++){
+			c = avgArrays( c, d );
+		}
 
 		// append C to ARR (flatly, using concat)
 		arr = arr.concat( c );
@@ -239,9 +241,16 @@ function getBranch( a, b, n ){
 	// return flat array [A, C, B]
 	return arr;
 }
+function getTrunk( a, b, n ){
+	var arr=[],i;
+	for(i=0;i<n;i++){
+		arr = arr.concat( getRegP(a,b,n,i) );
+	}
+	return arr;
+}
 function buildTree( a, b, n ){
 	var i,j;
-	var branch = getBranch( a, b, n );
+	var branch = getTrunk( a, b, n );
 	var root = branch;
 	var len = branch.length/3, len2;
 	var branches = [ branch ];
@@ -249,28 +258,17 @@ function buildTree( a, b, n ){
 	// build main branches
 	for(i=1;i<len;i++){
 		a = root.slice(i*3,i*3+3);
-		b = getRndP( b, 3 );
-		branch = getBranch( a, b, n/2 );
-		branches.push( branch );
-	}
-
-	// build secondary branches
-	len = branches.length;
-	for(i=1;i<len;i++){
-		branch = branches[i];
-		len2 = branches[i].length/3;
-		for(j=1;j<len2;j++){
-			a = branch.slice(j*3,j*3+3);
-			b = getRndP(a,1);
-			branch = getBranch(a,b,n/10);
+		for(j=0;j<3;j++){
+			b = getRndP( b, PI );
+			branch = getBranch( a, b, 12 );
 			branches.push( branch );
 		}
 	}
-	
+
 	// lathe the branches
-	branches[0] = lathe(branches[0],0.1);
+	branches[0] = lathe(branches[0],0.05)
 	for(i=1;i<branches.length;i++){
-		branches[i] = lathe(branches[i],0.05);
+		branches[i] = lathe(branches[i],0.025);
 	}
 	return branches;
 }
