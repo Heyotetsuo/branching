@@ -391,12 +391,20 @@ function render(){
 	renderTree( objs );
 
 	CVS.addEventListener( "mousedown", doMouseDown );
+	CVS.addEventListener( "touchstart", doMouseDown );
 	CVS.addEventListener( "mouseup", function(){
 		CVS.removeEventListener( "mousemove", doMouseMove );
 	});
+	CVS.addEventListener( "touchend", function(){
+		CVS.removeEventListener( "touchmove", doMouseMove );
+	});
+	CVS.addEventListener( "touchcancel", function(){
+		CVS.removeEventListener( "touchmove", doMouseMove );
+	});
 }
 function comp(){
-	C.clearRect(0,0,SZ,SZ);
+	C.fillStyle = "#eee";
+	C.fillRect(0,0,SZ,SZ);
 	C.drawImage( CVS2, 0, 0 );
 }
 function renderTree(objs){
