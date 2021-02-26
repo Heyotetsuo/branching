@@ -97,7 +97,7 @@ function rotate(x,y){
 	rotateY( mat, x );
 	rotateX( mat, y );
 	finMat = multiplyMat( projMat, mat );
-	C.uniformMatrix4fv( uniLoc.matrix, false, finMat );
+	C2.uniformMatrix4fv( uniLoc.matrix, false, finMat );
 	renderTree( objs );
 }
 function translate(a, v) {
@@ -330,8 +330,8 @@ function render(){
 	}
 	obj = objs[0];
 
-	vShdr = C.createShader(C.VERTEX_SHADER);
-	C.shaderSource(vShdr, `
+	vShdr = C2.createShader(C2.VERTEX_SHADER);
+	C2.shaderSource(vShdr, `
 		precision mediump float;
 		attribute vec3 position;
 		attribute vec3 color;
@@ -342,8 +342,8 @@ function render(){
 			gl_Position = matrix * vec4(position,1);
 		}
 	`);
-	fShdr = C.createShader(C.FRAGMENT_SHADER);
-	C.shaderSource(fShdr,`
+	fShdr = C2.createShader(C2.FRAGMENT_SHADER);
+	C2.shaderSource(fShdr,`
 		precision mediump float;
 		varying vec3 vColor;
 		void main(){
@@ -351,33 +351,33 @@ function render(){
 		}
 	`);
 
-	vBuff = C.createBuffer(), cBuff = C.createBuffer();
-	C.bindBuffer(AB, vBuff);
-	C.bufferData(AB, new Float32Array(obj.verts), SD);
-	C.bindBuffer(AB, cBuff);
-	C.bufferData(AB, new Float32Array(obj.clr), SD);
+	vBuff = C2.createBuffer(), cBuff = C2.createBuffer();
+	C2.bindBuffer(AB, vBuff);
+	C2.bufferData(AB, new Float32Array(obj.verts), SD);
+	C2.bindBuffer(AB, cBuff);
+	C2.bufferData(AB, new Float32Array(obj.clr), SD);
 
-	prog = C.createProgram();
-	C.compileShader(vShdr);
-	C.compileShader(fShdr);
-	C.attachShader(prog, vShdr);
-	C.attachShader(prog, fShdr);
-	C.linkProgram(prog);
+	prog = C2.createProgram();
+	C2.compileShader(vShdr);
+	C2.compileShader(fShdr);
+	C2.attachShader(prog, vShdr);
+	C2.attachShader(prog, fShdr);
+	C2.linkProgram(prog);
 	
-	pLoc = C.getAttribLocation(prog,`position`);
-	cLoc = C.getAttribLocation(prog,`color`);
-	C.enableVertexAttribArray(pLoc);
-	C.enableVertexAttribArray(cLoc);
+	pLoc = C2.getAttribLocation(prog,`position`);
+	cLoc = C2.getAttribLocation(prog,`color`);
+	C2.enableVertexAttribArray(pLoc);
+	C2.enableVertexAttribArray(cLoc);
 
-	C.bindBuffer(AB, vBuff);
-	C.vertexAttribPointer(pLoc,3,C.FLOAT,false,0,0);
-	C.bindBuffer(AB, cBuff);
-	C.vertexAttribPointer(cLoc,3,C.FLOAT,false,0,0);
+	C2.bindBuffer(AB, vBuff);
+	C2.vertexAttribPointer(pLoc,3,C2.FLOAT,false,0,0);
+	C2.bindBuffer(AB, cBuff);
+	C2.vertexAttribPointer(cLoc,3,C2.FLOAT,false,0,0);
 
-	C.useProgram(prog);
-	C.enable(C.DEPTH_TEST);
+	C2.useProgram(prog);
+	C2.enable(C2.DEPTH_TEST);
 
-	uniLoc = { matrix: C.getUniformLocation(prog,`matrix`) }
+	uniLoc = { matrix: C2.getUniformLocation(prog,`matrix`) }
 	mat = mat4Create(), projMat = mat4Create(), finMat = mat4Create();
 	projMat = projPersp( 75*PI/180, 1, 1e-4, 1e4 );
 	finMat = multiplyMat( projMat, mat );
@@ -385,8 +385,8 @@ function render(){
 	mat = translate( mat, [0,0,-2] );
 	rotate(0,0);
 
-	C.uniformMatrix4fv( uniLoc.matrix, false, finMat );
-	C.drawArrays(C.TRIANGLES,0,obj.verts.length/3);
+	C2.uniformMatrix4fv( uniLoc.matrix, false, finMat );
+	C2.drawArrays(C2.TRIANGLES,0,obj.verts.length/3);
 
 	renderTree( objs );
 
@@ -395,15 +395,20 @@ function render(){
 		CVS.removeEventListener( "mousemove", doMouseMove );
 	});
 }
+function comp(){
+	C.clearRect(0,0,SZ,SZ);
+	C.drawImage( CVS2, 0, 0 );
+}
 function renderTree(objs){
 	var o,i;
 	for(i=0;i<objs.length;i++){
 		o = objs[i];
-		C.bindBuffer(AB, vBuff);
-		C.bufferData(AB, new Float32Array(o.verts), SD);
-		C.bindBuffer(AB, cBuff);
-		C.bufferData(AB, new Float32Array(o.clr), SD);
-		C.drawArrays(C.TRIANGLES,0,o.verts.length/3);
+		C2.bindBuffer(AB, vBuff);
+		C2.bufferData(AB, new Float32Array(o.verts), SD);
+		C2.bindBuffer(AB, cBuff);
+		C2.bufferData(AB, new Float32Array(o.clr), SD);
+		C2.drawArrays(C2.TRIANGLES,0,o.verts.length/3);
+		comp();
 	}
 }
 function init(){
@@ -411,8 +416,8 @@ function init(){
 	seed = parseInt( "0x" + tokenData.hash.slice(2,16) );
 	CVS.width = SZ, CVS.height = SZ;
 	CVS2.width = SZ, CVS2.height = SZ;
-	C=CVS.getContext("webgl"),C2=CVS2.getContext("2d");
-	AB=C.ARRAY_BUFFER, SD=C.STATIC_DRAW;
+	C=CVS.getContext("2d"),C2=CVS2.getContext("webgl");
+	AB=C2.ARRAY_BUFFER, SD=C2.STATIC_DRAW;
 	nums = getNums();
 	bidx = 0;
 }
