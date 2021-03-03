@@ -4,7 +4,7 @@ var abs=m.abs,rnd=m.random,round=m.round,max=m.max,min=m.min,sqrt=m.sqrt,ceil=m.
 
 // globals
 var SZ,nums,nums2,temp,bidx,count, obj,objs,uniLoc,mat,projMat,finMat,T;
-var vbuff,cbuff;
+var vbuff,cbuff,finVerts,finClrs;
 var CVS=d.querySelector("#comp1"),CVS2=d.querySelector("#comp2"),C,C2,AB,SD;
 function normInt(s){ return parseInt(s,32)-SZ }
 function d2r(n){ return n*PI/180 }
@@ -98,6 +98,7 @@ function rotate(x,y){
 	rotateX( mat, y );
 	finMat = multiplyMat( projMat, mat );
 	C.uniformMatrix4fv( uniLoc.matrix, false, finMat );
+	if ( !finVerts ) setupTree( objs );
 	renderTree( objs );
 }
 function translate(a, v) {
@@ -129,9 +130,13 @@ function scale(out,mat,n){
 	for(i=0;i<mat.length;i++){ out[i] = mat[i]*n }
 	return out
 }
-function getColors(mat){
-	var a=[],i;
-	for (i=0;i<mat.length/3;i++){ a = a.concat([rnd(),rnd(),rnd()]) }
+function getColors(n){
+	var a=[],c=[rnd(),rnd(),rnd()],i,j;
+	for (i=0;i<n/3;i++){
+		a = a.concat(c);
+		a = a.concat(c);
+		a = a.concat(c);
+	}
 	return a;
 }
 function multiplyMat(a, b){
@@ -167,7 +172,8 @@ function multiplyMat(a, b){
 	out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
 	return out;
 }
-function arrDiff(a,b){ return [a[0]-b[0],a[1]-b[1],a[2]-c[2]] }
+function arrDiff(a,b){ return [a[0]-b[0],a[1]-b[1],a[2]-b[2]] }
+function arrSum(a,b){ return [a[0]+b[0],a[1]+b[1],a[2]+b[2]] }
 function crossMult(a,b){
 	return [
 		a[0]*b[1] - a[2]*b[1],
@@ -210,11 +216,41 @@ function getRegP(a,b,tot,n){
 	var z = (b[2]-a[2])/tot;
 	return [ a[0]+x*n, a[1]+y*n, a[2]+z*n ];
 }
-function getRndP(p,m){
+function getRndP(m){
 	var x = rand()*m;
 	var y = rand()*m;
 	var z = rand()*m;
 	return [x,y,z];
+}
+function lathe( skel, rad ){
+	var obj = {verts:[],faces:[],norms:[]};
+	var npts=3, inc, mult, prevmult, a,b,c, i,j;
+	var n = skel.length/3;
+	a = skel.slice( i*3, i*3+3 );
+	for( i=0; i<n-1; i++ ){
+		a = skel.slice( i*3, i*3+3 );
+		b = skel.slice( (i+1)*3, (i+1)*3+3 );
+		obj.verts = obj.verts.concat( a );
+		for( j=0; j<=npts; j++ ){
+			inc = j/npts*PI*2;
+			mult = rad - (i/n) * rad;
+			if ( !prevmult) prevmult = mult;
+			obj.verts = obj.verts.concat([
+				a[0]+sin(inc)*prevmult,
+				a[1]+cos(inc)*prevmult,
+				a[2]+cos(inc)*prevmult
+			]);
+			obj.verts = obj.verts.concat([
+				b[0]+sin(inc)*mult,
+				b[1]+cos(inc)*mult,
+				b[2]+cos(inc)*mult
+			]);
+			prevmult = mult;
+		}
+	}
+	obj.faces = getFaces( obj.verts );
+	obj.norms = getNorms( obj.verts );
+	return obj;
 }
 function getBranch( a, b, n ){
 	// initialize emptry array ARR, set STEP to be (A-B)/N.
@@ -227,7 +263,7 @@ function getBranch( a, b, n ){
 		d[1] += i/PI;
 
 		// pick a random point C
-		c = getRndP( d, 1 );
+		c = getRndP( 1 );
 
 		// set C[x,y,z] each to be averaged against B.
 		for(j=0;j<3;j++){
@@ -258,46 +294,19 @@ function buildTree( a, b, n ){
 	// build main branches
 	for(i=1;i<len;i++){
 		a = root.slice(i*3,i*3+3);
-		a = getRndP( a, PI );
 		for(j=0;j<3;j++){
-			b = getRndP( b, PI );
+			b = getRndP( PI );
 			branch = getBranch( a, b, 12 );
 			branches.push( branch );
 		}
 	}
 
-	// lathe the tree
-	branches[0] = lathe(branches[0],0.1)
+	// lathe the branches
+	branches[0] = lathe(branches[0],0.05)
 	for(i=1;i<branches.length;i++){
 		branches[i] = lathe(branches[i],0.025);
 	}
 	return branches;
-}
-function lathe( skel, rad ){
-	var obj = {verts:[],faces:[],norms:[]};
-	var npts=4, inc, mult, a,b,c, i,j;
-	var n = skel.length/3;
-	for( i=0; i<n; i++ ){
-		a = skel.slice( i*3, i*3+3 );
-		b = skel.slice( (i+1)*3, (i+1)*3+3 );
-		for( j=0; j<=npts; j++ ){
-			inc = j/npts*PI*2;
-			mult = rad - (i/n) * rad;
-			obj.verts = obj.verts.concat([
-				a[0]+sin(inc)*mult,
-				a[1]+cos(inc)*mult,
-				a[2]+cos(inc)*mult
-			]);
-			obj.verts = obj.verts.concat([
-				b[0]+sin(inc)*mult,
-				b[1]+cos(inc)*mult,
-				b[2]+cos(inc)*mult
-			]);
-		}
-	}
-	obj.faces = getFaces( obj.verts );
-	obj.norms = getNorms( obj.verts );
-	return obj;
 }
 function parseObj( obj ){
 	var vmat=[],nmat=[],a=[],v=obj.verts,f=obj.faces,n=obj.norms,i,j,idx;
@@ -318,7 +327,7 @@ function parseObj( obj ){
 			vmat = vmat.concat( v.slice(idx*3, idx*3+3) );
 		}
 	}
-	return {verts:vmat,faces:a,norms:n}
+	return {verts:vmat,faces:f,norms:n}
 }
 function render(){
 	var vShdr,fShdr,prog,pLoc,cLoc,x,y,o,i;
@@ -326,7 +335,7 @@ function render(){
 	objs = buildTree( [0,-1,0], [0,1,0], randuint()%10+3 );
 	for(i=0;i<objs.length;i++){
 		objs[i] = parseObj( objs[i] );
-		objs[i].clr = getColors( objs[i].verts );
+		objs[i].clr = getColors( objs[i].verts.length );
 	}
 	obj = objs[0];
 
@@ -403,17 +412,19 @@ function render(){
 		CVS.removeEventListener( "touchmove", doMouseMove );
 	});
 }
-function renderTree(objs){
-	var verts=[], clr=[], i;
+function setupTree(objs){
+	finVerts=[], finClrs=[];
 	for(i=0;i<objs.length;i++){
-		verts = verts.concat( objs[i].verts )
-		clr = clr.concat( objs[i].clr );
+		finVerts = finVerts.concat( objs[i].verts )
+		finClrs = finClrs.concat( objs[i].clr );
 	}
+}
+function renderTree(objs){
 	C.bindBuffer(AB, vBuff);
-	C.bufferData(AB, new Float32Array(verts), SD);
+	C.bufferData(AB, new Float32Array(finVerts), SD);
 	C.bindBuffer(AB, cBuff);
-	C.bufferData(AB, new Float32Array(clr), SD);
-	C.drawArrays(C.TRIANGLES,0,verts.length/3);
+	C.bufferData(AB, new Float32Array(finClrs), SD);
+	C.drawArrays(C.TRIANGLES,0,finVerts.length/3);
 }
 function init(){
 	SZ = 800;
