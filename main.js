@@ -3,9 +3,11 @@ var m=Math;d=document;w=window;
 var abs=m.abs,rnd=m.random,round=m.round,max=m.max,min=m.min,sqrt=m.sqrt,ceil=m.ceil,floor=m.floor,sin=m.sin,cos=m.cos,tan=m.tan,pow=m.pow,PI=m.PI;
 
 // globals
-var SZ,nums,nums2,temp,bidx,count, obj,objs,uniLoc,mat,projMat,finMat,T;
-var vbuff,cbuff,finVerts,finClrs;
-var CVS=d.querySelector("#comp1"),CVS2=d.querySelector("#comp2"),C,C2,AB,SD;
+var SZ,nums,nums2,temp,bidx,count,obj,objs,mode;
+var uniLoc,mat,projMat,finMat, vbuff,cbuff,finVerts,finClrs;
+var CVS=d.querySelector("#comp1"),CVS2=d.querySelector("#comp2");
+var wrap=d.querySelector("#wrap"),CV=d.querySelector("#wrap").children[0],C,C2,AB,SD;
+var bgs=["radial-gradient(#222,#000)","radial-gradient(#fff,#ddd)"];
 function normInt(s){ return parseInt(s,32)-SZ }
 function d2r(n){ return n*PI/180 }
 function to1(n){ return n/255 };
@@ -39,7 +41,9 @@ function getNums(){
 	}
 	return hashPairs;
 }
-function doMouseDown(){ CVS.addEventListener("mousemove",doMouseMove) }
+function doMouseDown(){
+	this.addEventListener("mousemove",doMouseMove);
+}
 function doMouseMove(){
 	me = event;
 	requestAnimationFrame( rotate )
@@ -98,8 +102,12 @@ function rotate(x,y){
 	rotateX( mat, y );
 	finMat = multiplyMat( projMat, mat );
 	C.uniformMatrix4fv( uniLoc.matrix, false, finMat );
-	if ( !finVerts ) setupTree( objs );
-	renderTree( objs );
+	if ( mode !== 1 ) flattenScene( objs );
+	if ( mode === 2 ){
+		renderTree( objs );
+	} else {
+		drawScene( objs );
+	}
 }
 function translate(a, v) {
 	var out=a;
@@ -130,12 +138,21 @@ function scale(out,mat,n){
 	for(i=0;i<mat.length;i++){ out[i] = mat[i]*n }
 	return out
 }
-function getColors(n){
-	var a=[],c=[rnd(),rnd(),rnd()],i,j;
-	for (i=0;i<n/3;i++){
-		a = a.concat(c);
-		a = a.concat(c);
-		a = a.concat(c);
+function getColors(arg1){
+	var mat,n,c,a=[],i,j;
+	if ( mode > 0 ){
+		mat = arg1;
+		for( i=0; i<mat.length/3; i++ ){
+			a = a.concat( [urand(), urand(), urand()] );
+		}
+	} else {
+		n = arg1;
+		c = [ urand(), urand(), urand() ];
+		for ( i=0; i<n/3; i++ ){
+			a = a.concat(c);
+			a = a.concat(c);
+			a = a.concat(c);
+		}
 	}
 	return a;
 }
@@ -174,6 +191,9 @@ function multiplyMat(a, b){
 }
 function arrDiff(a,b){ return [a[0]-b[0],a[1]-b[1],a[2]-b[2]] }
 function arrSum(a,b){ return [a[0]+b[0],a[1]+b[1],a[2]+b[2]] }
+function arrProd(a,b){ return [a[0]*b[0],a[1]*b[1],a[2]*b[2]] }
+function arrQuot(a,b){ return [a[0]/b[0],a[1]/b[1],a[2]/b[2]] }
+function dot(a,b){ return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] }
 function crossMult(a,b){
 	return [
 		a[0]*b[1] - a[2]*b[1],
@@ -181,17 +201,48 @@ function crossMult(a,b){
 		a[0]*b[1] - a[1]*b[0]
 	];
 }
+function getVec( tri ){
+	var u, v, x, y, z;
+	u = arrDiff( tri.slice(3,6), tri.slice(0,3) );
+	v = arrDiff( tri.slice(6,9), tri.slice(0,3) );
+	x = u[1]*v[2] - u[2]*v[1];
+	y = u[2]*v[0] - u[0]*v[2];
+	z = u[0]*v[1] - u[1]*v[0];
+	return [x,y,z];
+}
+function normalizeVec( a ){
+	var x=a[0], y=a[1], z=a[2];
+	var len = x*x + y*y + z*z;
+	if (len>0){
+		len = 1/sqrt(len);
+	}
+	return [ a[0]*len, a[1]*len, a[2]*len ];
+}
+function getDiffuse( norm, light ){
+	var cosAng = dot( norm, light );
+	return max(min(cosAng,1),0);
+}
 function getNorm( verts ){
 	var a, b, c;
 	a = verts.slice(0,3);
-	b = verts.slice(3,6);
+	b = verts.slice(3,3);
 	c = verts.slice(6,9);
 	return crossMult( arrDiff(b,a), arrDiff(c,a) );
 }
 function getNorms( verts ){
-	var a=[], i;
-	for(i=0;i<verts.length;i+=6){
-		a = a.concat( getNorm(verts.slice(i,9)) );
+	var a=[], nm, vec, g, i, j;
+	if ( mode === 2 ){
+		for(i=0;i<verts.length;i+=6){
+			a = a.concat( getNorm(verts.slice(i,9)) );
+		}
+	} else {
+		for(i=0;i<verts.length;i+=9){
+			vec = getVec( verts.slice(i,i+9) );
+			nm = normalizeVec( vec );
+			g = getDiffuse( nm, [-1,0,0] );
+
+			for( j=0; j<3; j++) a = a.concat( [g,g,g] );
+		}
 	}
 	return a;
 }
@@ -216,36 +267,46 @@ function getRegP(a,b,tot,n){
 	var z = (b[2]-a[2])/tot;
 	return [ a[0]+x*n, a[1]+y*n, a[2]+z*n ];
 }
-function getRndP(m){
-	var x = rand()*m;
-	var y = rand()*m;
-	var z = rand()*m;
+function getRndP(arg1, arg2){
+	var p=arg1,m=arg2,x,y,z;
+	if ( mode === 1 ){
+		x=p[0]+rand()*m;
+		y=p[1]+rand()*m;
+		z=p[2]+rand()*m;
+	} else {
+		x=rand()*m;
+		y=rand()*m;
+		z=rand()*m;
+	}
 	return [x,y,z];
 }
 function lathe( skel, rad ){
 	var obj = {verts:[],faces:[],norms:[]};
-	var npts=3, inc, mult, prevmult, a,b,c, i,j;
+	var npts=12, inc, mult, nmult, a,b,c, i,j;
+	var max = (mode===2?npts+1:npts);
 	var n = skel.length/3;
-	a = skel.slice( i*3, i*3+3 );
 	for( i=0; i<n-1; i++ ){
 		a = skel.slice( i*3, i*3+3 );
 		b = skel.slice( (i+1)*3, (i+1)*3+3 );
-		obj.verts = obj.verts.concat( a );
-		for( j=0; j<=npts; j++ ){
+		if ( mode !== 2 ){
+			obj.verts = obj.verts.concat( a );
+		}
+		for( j=0; j<max; j++ ){
 			inc = j/npts*PI*2;
 			mult = rad - (i/n) * rad;
-			if ( !prevmult) prevmult = mult;
+			nmult = rad - ((i+1)/n) * rad;
+			if ( mode === 2 ) nmult = mult;
 			obj.verts = obj.verts.concat([
-				a[0]+sin(inc)*prevmult,
-				a[1]+cos(inc)*prevmult,
-				a[2]+cos(inc)*prevmult
+				a[0]+sin(inc)*mult,
+				( mode>1 ? a[1]+cos(inc)*mult : a[1] ),
+				a[2]+cos(inc)*mult
 			]);
 			obj.verts = obj.verts.concat([
-				b[0]+sin(inc)*mult,
-				b[1]+cos(inc)*mult,
-				b[2]+cos(inc)*mult
+				b[0]+sin(inc)*nmult,
+				( mode>1 ? b[1]+cos(inc)*mult : b[1] ),
+				b[2]+cos(inc)*nmult
 			]);
-			prevmult = mult;
+			nmult = mult;
 		}
 	}
 	obj.faces = getFaces( obj.verts );
@@ -263,7 +324,11 @@ function getBranch( a, b, n ){
 		d[1] += i/PI;
 
 		// pick a random point C
-		c = getRndP( 1 );
+		if ( mode > 1 ){
+			c = getRndP( d, 1 );
+		} else {
+			c = getRndP( null, 1 );
+		}
 
 		// set C[x,y,z] each to be averaged against B.
 		for(j=0;j<3;j++){
@@ -277,6 +342,15 @@ function getBranch( a, b, n ){
 	// return flat array [A, C, B]
 	return arr;
 }
+function buildSkeleton(p,n,a){
+	if (typeof a === "undefined"){
+		a = (p).concat(getRndP(p,urand()/2) );
+	}
+	for(var i=0;i<n;i++){
+		a = a.concat( getRndP(p,urand()/2) );
+	}
+	return a;
+}
 function getTrunk( a, b, n ){
 	var arr=[],i;
 	for(i=0;i<n;i++){
@@ -284,29 +358,62 @@ function getTrunk( a, b, n ){
 	}
 	return arr;
 }
-function buildTree( a, b, n ){
+function buildTree( arg1, arg2, arg3 ){
 	var i,j;
-	var branch = getTrunk( a, b, n );
-	var root = branch;
-	var len = branch.length/3, len2;
-	var branches = [ branch ];
-
-	// build main branches
-	for(i=1;i<len;i++){
-		a = root.slice(i*3,i*3+3);
-		for(j=0;j<3;j++){
-			b = getRndP( PI );
-			branch = getBranch( a, b, 12 );
-			branches.push( branch );
+	if ( mode === 1 ){
+		var p = arg1, n = arg2;
+		var skel = buildSkeleton(p,n);
+		var obj = {verts:[],faces:[],norms:[]};
+		var rad = 1;
+		for( i=0; i<=n; i++ ){
+			obj.verts = obj.verts.concat([
+				skel[i] + sin(i/n*PI*2)*rad,
+				skel[i+1] + cos(i/n*PI*2)*rad,
+				skel[i+2]
+			]);
+			obj.verts = obj.verts.concat([
+				skel[i+3] + sin(i/n*PI*2)*rad,
+				skel[i+4] + cos(i/n*PI*2)*rad,
+				skel[i+5]
+			]);
 		}
-	}
+		obj.faces = getFaces( obj.verts );
+		obj.norms = getNorms( obj.verts );
+		return obj;
+	} else {
+		var a=arg1, b=arg2, n=arg3;
+		var branch = getTrunk( a, b, n );
+		var root = branch;
+		var len = branch.length/3;
+		var branches = [ branch ];
 
-	// lathe the branches
-	branches[0] = lathe(branches[0],0.05)
-	for(i=1;i<branches.length;i++){
-		branches[i] = lathe(branches[i],0.025);
+		// build main branches
+		for ( i=1; i<len; i++ ){
+			a = root.slice( i*3, i*3+3 );
+			if ( mode === 3 ) a = getRndP( a, PI );
+			for ( j=0; j<3; j++ ){
+				if ( mode > 1 ){
+					b = getRndP( b, PI );
+				} else {
+					b = getRndP( null, PI );
+				}
+				branch = getBranch( a, b, 12 );
+				branches.push( branch );
+			}
+		}
+
+		// lathe branches
+		if ( mode === 3 ){
+			branches[0] = lathe( branches[0],0.1 );
+		} else {
+			branches[0] = lathe( branches[0],0.05 );
+		}
+		for( i=1; i<branches.length; i++ ){
+			branches[i] = lathe(branches[i],0.025);
+		}
+
+		return branches;
 	}
-	return branches;
 }
 function parseObj( obj ){
 	var vmat=[],nmat=[],a=[],v=obj.verts,f=obj.faces,n=obj.norms,i,j,idx;
@@ -327,17 +434,48 @@ function parseObj( obj ){
 			vmat = vmat.concat( v.slice(idx*3, idx*3+3) );
 		}
 	}
-	return {verts:vmat,faces:f,norms:n}
+	return { verts: vmat, faces: (mode>1?a:f), norms: n };
+}
+function setupEvents(){
+	var a=[CVS,CVS2],i;
+	for( i=0; i<2; i++ ){
+		a[i].removeEventListener( "touchmove", doMouseMove );
+		a[i].addEventListener( "mousedown", doMouseDown );
+		a[i].addEventListener( "mouseup", function(){
+			this.removeEventListener( "mousemove", doMouseMove );
+		});
+	}
 }
 function render(){
 	var vShdr,fShdr,prog,pLoc,cLoc,x,y,o,i;
 	
-	objs = buildTree( [0,-1,0], [0,1,0], randuint()%10+3 );
-	for(i=0;i<objs.length;i++){
-		objs[i] = parseObj( objs[i] );
-		objs[i].clr = getColors( objs[i].verts.length );
+	if ( mode === 1 ){
+		obj = buildTree( [0,0.8,0], randuint()%100+1 );
+		obj = parseObj( obj );
+		obj.clr = getColors( obj.verts );
+	} else if ( mode === 3 ) {
+		objs = buildTree( [0,-1,0], [0,1,0], randuint()%10+3 );
+		for(i=0;i<objs.length;i++){
+			objs[i] = parseObj( objs[i] );
+			objs[i].clr = getColors( objs[i].verts );
+		}
+		obj = objs[0];
+	} else {
+		if ( mode === 2 ){
+			objs = buildTree( [0,-1,0], [0,1,0], randuint()%3+3 );
+		} else {
+			objs = buildTree( [0,-1,0], [0,1,0], randuint()%10+3 );
+		}
+		for(i=0;i<objs.length;i++){
+			objs[i] = parseObj( objs[i] );
+			if ( mode === 2 ){
+				objs[i].clr = getColors( objs[i].verts );
+			} else {
+				objs[i].clr = getNorms( objs[i].verts );
+			}
+		}
+		obj = objs[0];
 	}
-	obj = objs[0];
 
 	vShdr = C.createShader(C.VERTEX_SHADER);
 	C.shaderSource(vShdr, `
@@ -396,42 +534,103 @@ function render(){
 	rotate(0,0);
 
 	C.uniformMatrix4fv( uniLoc.matrix, false, finMat );
-	C.drawArrays(C.TRIANGLES,0,obj.verts.length/3);
 
-	renderTree( objs );
+	if ( mode > 1 ){
+		renderTree( objs );
+	} else {
+		drawScene( objs );
+	}
 
-	CVS.addEventListener( "mousedown", doMouseDown );
-	CVS.addEventListener( "touchstart", doMouseDown );
-	CVS.addEventListener( "mouseup", function(){
-		CVS.removeEventListener( "mousemove", doMouseMove );
-	});
-	CVS.addEventListener( "touchend", function(){
-		CVS.removeEventListener( "touchmove", doMouseMove );
-	});
-	CVS.addEventListener( "touchcancel", function(){
-		CVS.removeEventListener( "touchmove", doMouseMove );
-	});
+	setupEvents();
 }
-function setupTree(objs){
+function flattenScene( objs ){
 	finVerts=[], finClrs=[];
 	for(i=0;i<objs.length;i++){
 		finVerts = finVerts.concat( objs[i].verts )
 		finClrs = finClrs.concat( objs[i].clr );
 	}
 }
+function comp(){
+	C2.clearRect( 0, 0, SZ, SZ );
+	C2.drawImage( CVS, 0, 0 );
+}
+function newGLCanvas(){
+	var p = CVS.parentElement, el;
+	p.removeChild( CVS );
+	el = d.createElement( "canvas" );
+	el.setAttribute( "id", "comp1" );
+	el.width = CVS2.width, el.height = CVS2.height;
+	p.appendChild( el );
+	CVS = el;
+	C = CVS.getContext( "webgl" );
+}
+function drawBuff(verts, clr){
+	C.bindBuffer(AB, vBuff);
+	C.bufferData(AB, new Float32Array(verts),SD);
+	C.bindBuffer(AB, cBuff);
+	C.bufferData(AB, new Float32Array(clr),SD);
+	C.drawArrays( C.TRIANGLES, 0, verts.length/3 );
+}
 function renderTree(objs){
+	var verts=[], clr=[], o,i;
+	if ( mode === 3 ){
+		for( i=0; i<objs.length; i++ ){
+			verts = verts.concat( objs[i].verts );
+			clr = clr.concat( objs[i].clr );
+		}
+		drawBuff(verts,clr);
+	} else {
+ 		for( i=0; i<objs.length; i++ ){
+			o = objs[i];
+			drawBuff( o.verts, o.clr );
+			comp();
+		}
+	}
+}
+function drawScene(objs){
+	finVerts = finVerts || obj.verts;
+	finClrs = finClrs || obj.clr;
 	C.bindBuffer(AB, vBuff);
 	C.bufferData(AB, new Float32Array(finVerts), SD);
 	C.bindBuffer(AB, cBuff);
 	C.bufferData(AB, new Float32Array(finClrs), SD);
-	C.drawArrays(C.TRIANGLES,0,finVerts.length/3);
+	C.drawArrays( C.TRIANGLES,0, finVerts.length/3 );
+}
+function resetStyle(){ setStyle(0) }
+function setStyle(){
+	var k = parseInt( event.key );
+	if ( k < 4 ) {
+		mode = k;
+		newGLCanvas();
+		main();
+	}
+}
+function setBG( bg ){
+	CVS.style.backgroundImage = bg;
+	CVS2.style.backgroundImage = bg;
+}
+function swapCanvas(){
+	var p1, p2;
+	p1=CVS.parentElement, p2=CVS2.parentElement;
+	p1.appendChild( p2.removeChild(p2.children[0]) );
+	p2.appendChild( p1.removeChild(p1.children[0]) );
+	C2.clearRect( 0, 0, SZ, SZ );
+	CV = d.querySelector("#wrap").children[0];
 }
 function init(){
-	SZ = 800;
+	SZ=800, finVerts=undefined, finClrs=undefined;
 	seed = parseInt( "0x" + tokenData.hash.slice(2,16) );
-	CVS.width = SZ, CVS.height = SZ;
-	CVS2.width = SZ, CVS2.height = SZ;
-	C=CVS.getContext("webgl"),C2=CVS2.getContext("2d");
+	CVS.width = CVS.height = CVS2.width = CVS2.height = SZ;
+	C=CVS.getContext("webgl"); C2=CVS2.getContext("2d");
+	setBG( bgs[randuint()%2] );
+	if (typeof mode === "undefined"){
+		mode = randuint()%4;
+	}
+	if ( mode === 2 ){
+		swapCanvas();
+	} else if ( CVS.parentElement !== d.querySelector("#wrap") ) {
+		swapCanvas();
+	}
 	AB=C.ARRAY_BUFFER, SD=C.STATIC_DRAW;
 	nums = getNums();
 	bidx = 0;
