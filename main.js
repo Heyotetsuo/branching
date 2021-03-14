@@ -1,13 +1,10 @@
 // abbreviations
-var m=Math;d=document;w=window;
-var abs=m.abs,rnd=m.random,round=m.round,max=m.max,min=m.min,sqrt=m.sqrt,ceil=m.ceil,floor=m.floor,sin=m.sin,cos=m.cos,tan=m.tan,pow=m.pow,PI=m.PI;
+var C,C2,AB,DD,m=Math;d=document;w=window, abs=m.abs,rnd=m.random,round=m.round,max=m.max,min=m.min,sqrt=m.sqrt,ceil=m.ceil,floor=m.floor,sin=m.sin,cos=m.cos,tan=m.tan,pow=m.pow,PI=m.PI;
 
 // globals
-var SZ,nums,nums2,temp,bidx,count,obj,objs,mode;
-var uniLoc,mat,projMat,finMat, vbuff,cbuff,finVerts,finClrs;
+var SZ,obj,objs,mode,uniLoc,mat,projMat,finMat,finVerts,finClrs,px,py;
 var CVS=d.querySelector("#comp1"),CVS2=d.querySelector("#comp2");
-var wrap=d.querySelector("#wrap"),CV=d.querySelector("#wrap").children[0],C,C2,AB,SD;
-var bgs=["radial-gradient(#222,#000)","radial-gradient(#fff,#ddd)"];
+var CV=d.querySelector("#wrap").children[0];
 function normInt(s){ return parseInt(s,32)-SZ }
 function d2r(n){ return n*PI/180 }
 function to1(n){ return n/255 };
@@ -28,18 +25,12 @@ function urand(){
 function rand(){
 	return urand()*2-1;
 }
-function getNums(){
-	var hashPairs=[],seed,rvs,i=0,j=0;
-	var hash = tokenData.hash.slice(2);
-	for(i=0;i<64;i++){
-		for(j=0;j<64;j++){
-			hashPairs.push( parseInt(
-				"0x" + hash.charAt(j) +
-				hash.charAt((j+i)%64)
-			));
-		}
+function vardump( o ){
+	var s = "", p;
+	for( p in o ){
+		s += p + ", ";
 	}
-	return hashPairs;
+	return s;
 }
 function doMouseDown(){
 	this.addEventListener("mousemove",doMouseMove);
@@ -93,16 +84,30 @@ function rotateY(m,angle){
 	m[6] = c*m[6]-s*mv4;
 	m[10] = c*m[10]-s*mv8;
 }
-function rotate(x,y){
+function rotate(){
+	var x, y, vx, vy;
 	if ( typeof me !== "undefined" ){
-		x = me.movementX/100;
-		y = me.movementY/100;
+		if ( me instanceof MouseEvent ){
+			vx = me.movementX/100;
+			vy = me.movementY/100;
+		} else {
+			x = me.touches[0].clientX;
+			y = me.touches[0].clientY;
+			px = px || x;
+			py = py || y;
+			vx = (x-px)/100;
+			vy = (y-py)/100;
+			px = x;
+			py = y;
+		}
+	} else {
+		vx = 0, vy = 0;
 	}
-	rotateY( mat, x );
-	rotateX( mat, y );
+	rotateY( mat, vx );
+	rotateX( mat, vy );
 	finMat = multiplyMat( projMat, mat );
 	C.uniformMatrix4fv( uniLoc.matrix, false, finMat );
-	if ( mode !== 1 ) flattenScene( objs );
+	if ( mode !== 1 && !finVerts ) flattenScene( objs );
 	if ( mode === 2 ){
 		renderTree( objs );
 	} else {
@@ -190,9 +195,6 @@ function multiplyMat(a, b){
 	return out;
 }
 function arrDiff(a,b){ return [a[0]-b[0],a[1]-b[1],a[2]-b[2]] }
-function arrSum(a,b){ return [a[0]+b[0],a[1]+b[1],a[2]+b[2]] }
-function arrProd(a,b){ return [a[0]*b[0],a[1]*b[1],a[2]*b[2]] }
-function arrQuot(a,b){ return [a[0]/b[0],a[1]/b[1],a[2]/b[2]] }
 function dot(a,b){ return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] }
 function crossMult(a,b){
 	return [
@@ -240,8 +242,7 @@ function getNorms( verts ){
 			vec = getVec( verts.slice(i,i+9) );
 			nm = normalizeVec( vec );
 			g = getDiffuse( nm, [-1,0,0] );
-
-			for( j=0; j<3; j++) a = a.concat( [g,g,g] );
+			for( j=0; j<3; j++ ) a = a.concat( [0,g,.25] );
 		}
 	}
 	return a;
@@ -439,7 +440,7 @@ function parseObj( obj ){
 function setupEvents(){
 	var a=[CVS,CVS2],i;
 	for( i=0; i<2; i++ ){
-		a[i].removeEventListener( "touchmove", doMouseMove );
+		a[i].addEventListener( "touchmove", doMouseMove );
 		a[i].addEventListener( "mousedown", doMouseDown );
 		a[i].addEventListener( "mouseup", function(){
 			this.removeEventListener( "mousemove", doMouseMove );
@@ -479,7 +480,7 @@ function render(){
 
 	vShdr = C.createShader(C.VERTEX_SHADER);
 	C.shaderSource(vShdr, `
-		precision mediump float;
+		precision highp float;
 		attribute vec3 position;
 		attribute vec3 color;
 		varying vec3 vColor;
@@ -501,9 +502,9 @@ function render(){
 
 	vBuff = C.createBuffer(), cBuff = C.createBuffer();
 	C.bindBuffer(AB, vBuff);
-	C.bufferData(AB, new Float32Array(obj.verts), SD);
+	C.bufferData(AB, new Float32Array(obj.verts), DD);
 	C.bindBuffer(AB, cBuff);
-	C.bufferData(AB, new Float32Array(obj.clr), SD);
+	C.bufferData(AB, new Float32Array(obj.clr), DD);
 
 	prog = C.createProgram();
 	C.compileShader(vShdr);
@@ -531,7 +532,7 @@ function render(){
 	finMat = multiplyMat( projMat, mat );
 	mat = scale( mat, 0.1 );
 	mat = translate( mat, [0,0,-2] );
-	rotate(0,0);
+	rotate();
 
 	C.uniformMatrix4fv( uniLoc.matrix, false, finMat );
 
@@ -554,7 +555,7 @@ function comp(){
 	C2.clearRect( 0, 0, SZ, SZ );
 	C2.drawImage( CVS, 0, 0 );
 }
-function newGLCanvas(){
+function newGL(){
 	var p = CVS.parentElement, el;
 	p.removeChild( CVS );
 	el = d.createElement( "canvas" );
@@ -566,9 +567,9 @@ function newGLCanvas(){
 }
 function drawBuff(verts, clr){
 	C.bindBuffer(AB, vBuff);
-	C.bufferData(AB, new Float32Array(verts),SD);
+	C.bufferData(AB, new Float32Array(verts),DD);
 	C.bindBuffer(AB, cBuff);
-	C.bufferData(AB, new Float32Array(clr),SD);
+	C.bufferData(AB, new Float32Array(clr),DD);
 	C.drawArrays( C.TRIANGLES, 0, verts.length/3 );
 }
 function renderTree(objs){
@@ -591,17 +592,16 @@ function drawScene(objs){
 	finVerts = finVerts || obj.verts;
 	finClrs = finClrs || obj.clr;
 	C.bindBuffer(AB, vBuff);
-	C.bufferData(AB, new Float32Array(finVerts), SD);
+	C.bufferData(AB, new Float32Array(finVerts), DD);
 	C.bindBuffer(AB, cBuff);
-	C.bufferData(AB, new Float32Array(finClrs), SD);
+	C.bufferData(AB, new Float32Array(finClrs), DD);
 	C.drawArrays( C.TRIANGLES,0, finVerts.length/3 );
 }
-function resetStyle(){ setStyle(0) }
 function setStyle(){
 	var k = parseInt( event.key );
 	if ( k < 4 ) {
 		mode = k;
-		newGLCanvas();
+		newGL();
 		main();
 	}
 }
@@ -622,7 +622,10 @@ function init(){
 	seed = parseInt( "0x" + tokenData.hash.slice(2,16) );
 	CVS.width = CVS.height = CVS2.width = CVS2.height = SZ;
 	C=CVS.getContext("webgl"); C2=CVS2.getContext("2d");
+
+	var bgs=["radial-gradient(#222,#000)","radial-gradient(#fff,#ddd)"];
 	setBG( bgs[randuint()%2] );
+
 	if (typeof mode === "undefined"){
 		mode = randuint()%4;
 	}
@@ -631,9 +634,7 @@ function init(){
 	} else if ( CVS.parentElement !== d.querySelector("#wrap") ) {
 		swapCanvas();
 	}
-	AB=C.ARRAY_BUFFER, SD=C.STATIC_DRAW;
-	nums = getNums();
-	bidx = 0;
+	AB=C.ARRAY_BUFFER, DD=C.DYNAMIC_DRAW;
 }
 function main(){
 	init();
