@@ -2,7 +2,7 @@
 var C,C2,AB,DD,m=Math;d=document;w=window, abs=m.abs,rnd=m.random,round=m.round,max=m.max,min=m.min,sqrt=m.sqrt,ceil=m.ceil,floor=m.floor,sin=m.sin,cos=m.cos,tan=m.tan,pow=m.pow,PI=m.PI;
 
 // globals
-var SZ,obj,objs,mode,uniLoc,mat,projMat,finMat,finVerts,finClrs,px,py;
+var SZ,obj,objs,mode,uniLoc,mat,projMat,finMat,finVerts,finClrs,px,py,baseclr,rloop;
 var CVS=d.querySelector("#comp1"),CVS2=d.querySelector("#comp2");
 var CV=d.querySelector("#wrap").children[0];
 function normInt(s){ return parseInt(s,32)-SZ }
@@ -84,15 +84,15 @@ function rotateY(m,angle){
 	m[6] = c*m[6]-s*mv4;
 	m[10] = c*m[10]-s*mv8;
 }
-function rotate(){
-	var x, y, vx, vy;
+function rotate(x,y){
+	var x=x, y=y, vx, vy;
 	if ( typeof me !== "undefined" ){
 		if ( me instanceof MouseEvent ){
 			vx = me.movementX/100;
 			vy = me.movementY/100;
 		} else {
-			x = me.touches[0].clientX;
-			y = me.touches[0].clientY;
+			x = x||me.touches[0].clientX;
+			y = y||me.touches[0].clientY;
 			px = px || x;
 			py = py || y;
 			vx = (x-px)/100;
@@ -113,6 +113,16 @@ function rotate(){
 	} else {
 		drawScene( objs );
 	}
+}
+function autoRotate(){
+	rloop = setInterval( function(){
+		rotate(1,0);
+		if ( mode > 1 ){
+			renderTree( objs );
+		} else {
+			drawScene( objs );
+		}
+	}, 100 );
 }
 function translate(a, v) {
 	var out=a;
@@ -145,19 +155,14 @@ function scale(out,mat,n){
 }
 function getColors(arg1){
 	var mat,n,c,a=[],i,j;
-	if ( mode > 0 ){
-		mat = arg1;
-		for( i=0; i<mat.length/3; i++ ){
-			a = a.concat( [urand(), urand(), urand()] );
-		}
-	} else {
-		n = arg1;
-		c = [ urand(), urand(), urand() ];
-		for ( i=0; i<n/3; i++ ){
-			a = a.concat(c);
-			a = a.concat(c);
-			a = a.concat(c);
-		}
+	var v = urand();
+	mat = arg1;
+	for( i=0; i<mat.length/3; i++ ){
+		a = a.concat( [
+			baseclr[0] + urand()*v,
+			baseclr[1] + urand()*v,
+			baseclr[2] + urand()*v
+		] );
 	}
 	return a;
 }
@@ -472,7 +477,7 @@ function render(){
 			if ( mode === 2 ){
 				objs[i].clr = getColors( objs[i].verts );
 			} else {
-				objs[i].clr = getNorms( objs[i].verts );
+				objs[i].clr = getColors( objs[i].verts );
 			}
 		}
 		obj = objs[0];
@@ -555,16 +560,6 @@ function comp(){
 	C2.clearRect( 0, 0, SZ, SZ );
 	C2.drawImage( CVS, 0, 0 );
 }
-function newGL(){
-	var p = CVS.parentElement, el;
-	p.removeChild( CVS );
-	el = d.createElement( "canvas" );
-	el.setAttribute( "id", "comp1" );
-	el.width = CVS2.width, el.height = CVS2.height;
-	p.appendChild( el );
-	CVS = el;
-	C = CVS.getContext( "webgl" );
-}
 function drawBuff(verts, clr){
 	C.bindBuffer(AB, vBuff);
 	C.bufferData(AB, new Float32Array(verts),DD);
@@ -597,15 +592,28 @@ function drawScene(objs){
 	C.bufferData(AB, new Float32Array(finClrs), DD);
 	C.drawArrays( C.TRIANGLES,0, finVerts.length/3 );
 }
-function setStyle(){
-	var k = parseInt( event.key );
-	if ( k < 4 ) {
-		mode = k;
-		newGL();
-		main();
+function getHexClr(){
+	var r = floor(urand()*16).toString(16);
+	var g = floor(urand()*16).toString(16);
+	var b = floor(urand()*16).toString(16);
+	return "#"+r+g+b;
+}
+function darken(hex){
+	var newHex = "#", i;
+	console.log( "hex: " + hex );
+	for( i=1; i<hex.length; i++ ){
+		newHex += floor( parseInt("0x"+hex[i])/2 ).toString(16);
 	}
+	console.log( "newhex: " + newHex );
+	return newHex;
 }
 function setBG( bg ){
+	if ( !bg ){
+		var c1,c2,bg;
+		c1 = getHexClr();
+		c2 = darken(c1);
+		bg = "radial-gradient("+c1+","+c2+")";
+	}
 	CVS.style.backgroundImage = bg;
 	CVS2.style.backgroundImage = bg;
 }
@@ -622,9 +630,9 @@ function init(){
 	seed = parseInt( "0x" + tokenData.hash.slice(2,16) );
 	CVS.width = CVS.height = CVS2.width = CVS2.height = SZ;
 	C=CVS.getContext("webgl"); C2=CVS2.getContext("2d");
+	baseclr = [ urand(), urand(), urand() ];
 
-	var bgs=["radial-gradient(#222,#000)","radial-gradient(#fff,#ddd)"];
-	setBG( bgs[randuint()%2] );
+	setBG();
 
 	if (typeof mode === "undefined"){
 		mode = randuint()%4;
