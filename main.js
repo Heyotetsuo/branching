@@ -2,7 +2,7 @@
 var C,C2,AB,DD,m=Math;d=document;w=window, abs=m.abs,rnd=m.random,round=m.round,max=m.max,min=m.min,sqrt=m.sqrt,ceil=m.ceil,floor=m.floor,sin=m.sin,cos=m.cos,tan=m.tan,pow=m.pow,PI=m.PI;
 
 // globals
-var SZ,obj,objs,mode,uniLoc,mat,projMat,finMat,finVerts,finClrs,px,py,baseclr,rloop;
+var SZ,obj,objs,mode,uniLoc,mat,projMat,finMat,finVerts,finClrs,px,py,baseclr,rloop,vec;
 var CVS=d.querySelector("#comp1"),CVS2=d.querySelector("#comp2");
 var CV=d.querySelector("#wrap").children[0];
 function normInt(s){ return parseInt(s,32)-SZ }
@@ -84,24 +84,31 @@ function rotateY(m,angle){
 	m[6] = c*m[6]-s*mv4;
 	m[10] = c*m[10]-s*mv8;
 }
+function setVec(x,y){
+	px = px || 0;
+	py = py || 0;
+	var vx = (x-px)/100;
+	var vy = (y-py)/100;
+	px = x, py = y;
+	return [vx, vy];
+}
 function rotate(x,y){
-	var x=x, y=y, vx, vy;
-	if ( typeof me !== "undefined" ){
-		if ( me instanceof MouseEvent ){
+	var x=x, y=y, vx, vy, va, udf = "undefined";
+	if ( typeof x === udf || typeof y === udf ) {
+		if ( typeof me === udf ){
+			va = setVec( 0, 0 );
+			vx = va[0], vy = va[1]
+		} else if ( me instanceof MouseEvent ){
 			vx = me.movementX/100;
 			vy = me.movementY/100;
-		} else {
-			x = x||me.touches[0].clientX;
-			y = y||me.touches[0].clientY;
-			px = px || x;
-			py = py || y;
-			vx = (x-px)/100;
-			vy = (y-py)/100;
-			px = x;
-			py = y;
+		} else if ( me instanceof TouchEvent ){
+			x = me.touches[0].clientX;
+			y = me.touches[0].clientY;
+			va = setVec( x, y );
+			vx = va[0], vy = va[1];
 		}
 	} else {
-		vx = 0, vy = 0;
+		vx = x, vy = y;
 	}
 	rotateY( mat, vx );
 	rotateX( mat, vy );
@@ -114,15 +121,18 @@ function rotate(x,y){
 		drawScene( objs );
 	}
 }
-function autoRotate(){
+function stopDrift(){ clearTimeout(rloop) }
+function drift(){
+	var amp = ( mode===2 ? 0.1 : 0.01 );
+	var freq = ( mode===2 ? 60 : 30 );
 	rloop = setInterval( function(){
-		rotate(1,0);
+		rotate(vec[0]*amp,vec[1]*amp);
 		if ( mode > 1 ){
 			renderTree( objs );
 		} else {
 			drawScene( objs );
 		}
-	}, 100 );
+	}, 1000/30 );
 }
 function translate(a, v) {
 	var out=a;
@@ -600,11 +610,9 @@ function getHexClr(){
 }
 function darken(hex){
 	var newHex = "#", i;
-	console.log( "hex: " + hex );
 	for( i=1; i<hex.length; i++ ){
 		newHex += floor( parseInt("0x"+hex[i])/2 ).toString(16);
 	}
-	console.log( "newhex: " + newHex );
 	return newHex;
 }
 function setBG( bg ){
@@ -631,6 +639,7 @@ function init(){
 	CVS.width = CVS.height = CVS2.width = CVS2.height = SZ;
 	C=CVS.getContext("webgl"); C2=CVS2.getContext("2d");
 	baseclr = [ urand(), urand(), urand() ];
+	vec = [ rand(), rand() ];
 
 	setBG();
 
@@ -647,5 +656,6 @@ function init(){
 function main(){
 	init();
 	render();
+	drift();
 }
 main();
