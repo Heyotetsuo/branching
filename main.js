@@ -417,6 +417,7 @@ function buildTree( arg1, arg2, arg3 ){
 				branches.push( branch );
 			}
 		}
+		if ( mode === 3 ) branches.shift();
 
 		// lathe branches
 		if ( mode === 3 ){
@@ -470,7 +471,7 @@ function render(){
 		obj = parseObj( obj );
 		obj.clr = getColors( obj.verts );
 	} else if ( mode === 3 ) {
-		objs = buildTree( [0,-1,0], [0,1,0], randuint()%10+3 );
+		objs = buildTree( [0,-1,0], [0,1,0], randuint()%20+10 );
 		for(i=0;i<objs.length;i++){
 			objs[i] = parseObj( objs[i] );
 			objs[i].clr = getColors( objs[i].verts );
